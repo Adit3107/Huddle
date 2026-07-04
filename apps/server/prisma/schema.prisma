@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoomType {
+  QUICK @map("quick")
+  GROUP @map("group")
+
+  @@map("room_type")
+}
+
+model User {
+  id          String      @id @default(cuid())
+  name        String
+  email       String      @unique
+  image       String?
+  provider    String
+  providerId  String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  ownedRooms  ChatGroup[] @relation("RoomOwner")
+  memberships GroupUser[]
+
+  @@unique([provider, providerId])
+  @@map("users")
+}
+
+model ChatGroup {
+  id          String      @id @default(cuid())
+  title       String
+  passcode    String?
+  roomType    RoomType
+  description String?
+  createdBy   String
+  expiresAt   DateTime?
+  peakUsers   Int         @default(0)
+  isArchived  Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  owner       User        @relation("RoomOwner", fields: [createdBy], references: [id], onDelete: Restrict)
+  members     GroupUser[]
+  messages    Message[]
+
+  @@index([roomType])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@map("chat_groups")
+}
+
+model GroupUser {
+  id          String    @id @default(cuid())
+  groupId     String
+  userId      String?
+  displayName String
+  isAnonymous Boolean   @default(false)
+  joinedAt    DateTime  @default(now())
+  lastSeen    DateTime?
+  group       ChatGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  messages    Message[] @relation("MessageSender")
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+  @@map("group_users")
+}
+
+model Message {
+  id         String    @id @default(cuid())
+  groupId    String
+  senderId   String
+  senderName String
+  text       String?   @db.Text
+  fileUrl    String?
+  fileType   String?
+  fileName   String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  group      ChatGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sender     GroupUser @relation("MessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+
+  @@index([groupId])
+  @@index([createdAt])
+  @@index([groupId, createdAt])
+  @@map("messages")
+}
