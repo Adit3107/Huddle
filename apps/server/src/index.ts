@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
+import authRoutes from "./routes/auth.routes.js";
 
 dotenv.config();
 
@@ -17,6 +18,8 @@ app.use(compression());
 app.use(morgan("dev"));
 app.use(cookieParser());
 app.use(express.json());
+
+app.use("/api/auth", authRoutes);
 
 app.get("/", (_request, response) => {
   response.send("Huddle Backend Running");
