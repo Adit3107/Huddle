@@ -6,14 +6,15 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": "../..",
     "sourceMap": true,
     "types": [
       "node"
     ]
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "../../packages/shared/src/**/*.ts"
   ],
   "exclude": [
     "node_modules",
