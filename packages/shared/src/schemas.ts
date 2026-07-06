@@ -87,3 +87,54 @@ export const googleLoginSchema = z.object({
     .transform((value) => (value && value.length > 0 ? value : null)),
   providerId: z.string().trim().min(1)
 });
+
+export const realtimeRoomIdSchema = z.object({
+  roomId: cuidSchema
+});
+
+export const joinRoomSocketSchema = realtimeRoomIdSchema.extend({
+  participantId: cuidSchema.optional()
+});
+
+export const leaveRoomSocketSchema = realtimeRoomIdSchema;
+
+export const reconnectRoomSchema = realtimeRoomIdSchema.extend({
+  participantId: cuidSchema.optional(),
+  lastMessageId: cuidSchema.optional(),
+  since: z.string().datetime().optional()
+});
+
+export const reconnectSocketSchema = z.object({
+  rooms: z.array(reconnectRoomSchema).min(1).max(50)
+});
+
+export const heartbeatSocketSchema = z.object({
+  roomIds: z.array(cuidSchema).max(50).default([])
+});
+
+export const messageSocketSchema = realtimeRoomIdSchema
+  .extend({
+    clientMessageId: z.string().trim().min(1).max(120).optional(),
+    kind: z.enum(["TEXT", "FILE", "IMAGE"]).default("TEXT"),
+    text: z
+      .string()
+      .trim()
+      .max(4000)
+      .optional()
+      .nullable()
+      .transform((value) => (value && value.length > 0 ? value : null)),
+    fileUrl: z.string().trim().url().optional().nullable(),
+    fileType: z.string().trim().max(120).optional().nullable(),
+    fileName: z.string().trim().max(255).optional().nullable()
+  })
+  .refine(
+    (value) =>
+      value.kind === "TEXT"
+        ? Boolean(value.text)
+        : Boolean(value.fileUrl) || Boolean(value.text),
+    {
+      message: "Message must include text or file data."
+    }
+  );
+
+export const typingSocketSchema = realtimeRoomIdSchema;
