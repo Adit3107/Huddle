@@ -13,7 +13,7 @@
     ],
     "paths": {
       "@/*": [
-        "./*"
+        "apps/web/*"
       ],
       "@huddle/shared": [
         "../../packages/shared/src/index.ts"
