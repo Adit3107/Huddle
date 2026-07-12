@@ -35,7 +35,7 @@ export async function getRoomController(request: Request, response: Response) {
 
 export async function createRoomController(request: Request, response: Response) {
   const user = requireRequestUser(request);
-  const room = await createRoom(request.body, user.id, user.name);
+  const room = await createRoom(request.body, user);
 
   return sendSuccess(response, room, 201);
 }

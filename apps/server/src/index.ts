@@ -19,7 +19,7 @@ import uploadRoutes from "./routes/upload.routes.js";
 import { configureRealtime } from "./realtime/socket.js";
 import { logger } from "./utils/logger.js";
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);

@@ -177,8 +177,32 @@ export async function getRoomForUser(roomId: string, userId: string) {
   return assertRoomAccess(roomId, { userId });
 }
 
-export async function createRoom(input: RoomInput, userId: string, name: string) {
+export async function createRoom(
+  input: RoomInput,
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  }
+) {
   return prisma.$transaction(async (transaction) => {
+    await transaction.user.upsert({
+      where: {
+        id: user.id
+      },
+      create: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: null,
+        provider: "token",
+        providerId: user.id
+      },
+      update: {
+        name: user.name
+      }
+    });
+
     const room = await transaction.chatGroup.create({
       data: {
         title: input.title,
@@ -186,12 +210,12 @@ export async function createRoom(input: RoomInput, userId: string, name: string)
         description: input.description ?? null,
         expiresAt: input.expiresAt ?? null,
         passcode: input.passcode ?? null,
-        createdBy: userId,
+        createdBy: user.id,
         peakUsers: 1,
         members: {
           create: {
-            userId,
-            displayName: name,
+            userId: user.id,
+            displayName: user.name,
             isAnonymous: false,
             lastSeen: new Date()
           }

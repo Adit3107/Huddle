@@ -13,7 +13,8 @@ import { logger } from "../utils/logger.js";
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
 dotenv.config({
-  path: resolve(currentDir, "../../../../.env")
+  path: resolve(currentDir, "../../../../.env"),
+  quiet: true
 });
 
 const worker = new Worker<RealtimeJob, void, string>(
