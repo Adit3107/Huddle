@@ -70,6 +70,34 @@ export async function getRoomOrThrow(roomId: string) {
   return room;
 }
 
+export async function getRoomPreview(roomId: string) {
+  const room = await prisma.chatGroup.findUnique({
+    where: {
+      id: roomId
+    },
+    select: roomSelect
+  });
+
+  if (!room) {
+    throw new AppError(404, "ROOM_NOT_FOUND", "Room was not found.");
+  }
+
+  return {
+    id: room.id,
+    title: room.title,
+    roomType: room.roomType,
+    description: room.description,
+    expiresAt: room.expiresAt,
+    createdBy: room.createdBy,
+    isArchived: room.isArchived,
+    isExpired: Boolean(room.expiresAt && room.expiresAt.getTime() <= Date.now()),
+    hasPasscode: Boolean(room.passcode),
+    createdAt: room.createdAt,
+    updatedAt: room.updatedAt,
+    _count: room._count
+  };
+}
+
 export async function assertRoomOwner(roomId: string, userId: string) {
   const room = await getRoomOrThrow(roomId);
 
@@ -177,8 +205,32 @@ export async function getRoomForUser(roomId: string, userId: string) {
   return assertRoomAccess(roomId, { userId });
 }
 
-export async function createRoom(input: RoomInput, userId: string, name: string) {
+export async function createRoom(
+  input: RoomInput,
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  }
+) {
   return prisma.$transaction(async (transaction) => {
+    await transaction.user.upsert({
+      where: {
+        id: user.id
+      },
+      create: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: null,
+        provider: "token",
+        providerId: user.id
+      },
+      update: {
+        name: user.name
+      }
+    });
+
     const room = await transaction.chatGroup.create({
       data: {
         title: input.title,
@@ -186,12 +238,12 @@ export async function createRoom(input: RoomInput, userId: string, name: string)
         description: input.description ?? null,
         expiresAt: input.expiresAt ?? null,
         passcode: input.passcode ?? null,
-        createdBy: userId,
+        createdBy: user.id,
         peakUsers: 1,
         members: {
           create: {
-            userId,
-            displayName: name,
+            userId: user.id,
+            displayName: user.name,
             isAnonymous: false,
             lastSeen: new Date()
           }

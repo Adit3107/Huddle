@@ -2,35 +2,48 @@
 
 import { LogIn, LogOut } from "lucide-react";
 import { signIn, signOut, useSession } from "next-auth/react";
+import { Button, type ButtonProps } from "@/components/ui/button";
 
-export function LoginButton() {
+export function LoginButton({
+  className,
+  size = "default",
+  variant = "default"
+}: Pick<ButtonProps, "className" | "size" | "variant">) {
   const { status } = useSession();
 
   return (
-    <button
-      className="inline-flex items-center gap-2 rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+    <Button
+      className={className}
       disabled={status === "loading"}
       onClick={() => void signIn("google", { callbackUrl: "/dashboard" })}
+      size={size}
       type="button"
+      variant={variant}
     >
       <LogIn aria-hidden="true" size={16} />
       Sign in with Google
-    </button>
+    </Button>
   );
 }
 
-export function LogoutButton() {
+export function LogoutButton({
+  className,
+  size = "default",
+  variant = "outline"
+}: Pick<ButtonProps, "className" | "size" | "variant">) {
   const { status } = useSession();
 
   return (
-    <button
-      className="inline-flex items-center gap-2 rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+    <Button
+      className={className}
       disabled={status === "loading"}
       onClick={() => void signOut({ callbackUrl: "/" })}
+      size={size}
       type="button"
+      variant={variant}
     >
       <LogOut aria-hidden="true" size={16} />
       Logout
-    </button>
+    </Button>
   );
 }

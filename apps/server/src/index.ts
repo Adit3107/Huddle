@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import { createServer } from "node:http";
 import { pinoHttp } from "pino-http";
 import {
   globalErrorHandler,
@@ -15,9 +16,10 @@ import authRoutes from "./routes/auth.routes.js";
 import messageRoutes from "./routes/message.routes.js";
 import roomRoutes from "./routes/room.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
+import { configureRealtime } from "./realtime/socket.js";
 import { logger } from "./utils/logger.js";
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -59,6 +61,9 @@ app.get("/", (_request, response) => {
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
-app.listen(port, () => {
+const server = createServer(app);
+configureRealtime(server);
+
+server.listen(port, () => {
   logger.info({ port }, "Huddle backend listening");
 });

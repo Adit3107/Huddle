@@ -19,8 +19,14 @@ export async function listMembersController(
   request: Request,
   response: Response
 ) {
-  const user = requireRequestUser(request);
-  const members = await listMembers(getParam(request, "id"), user.id);
+  const participantId =
+    (request.query.participantId as string | undefined) ??
+    request.header("X-Participant-Id") ??
+    undefined;
+  const members = await listMembers(getParam(request, "id"), {
+    userId: request.user?.id,
+    participantId
+  });
 
   return sendSuccess(response, members);
 }

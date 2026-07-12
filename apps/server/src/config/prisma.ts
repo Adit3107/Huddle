@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
 dotenv.config({
-  path: resolve(currentDir, "../../../../.env")
+  path: resolve(currentDir, "../../../../.env"),
+  quiet: true
 });
 
 if (!process.env.DATABASE_URL) {
@@ -18,8 +19,19 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
+function isLocalDatabase(connectionString: string) {
+  const databaseUrl = new URL(connectionString);
+
+  return ["localhost", "127.0.0.1", "::1"].includes(databaseUrl.hostname);
+}
+
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
+  ssl: isLocalDatabase(process.env.DATABASE_URL)
+    ? false
+    : {
+        rejectUnauthorized: false
+      }
 });
 
 const prisma =

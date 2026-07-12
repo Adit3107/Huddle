@@ -2,11 +2,20 @@ import { mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Router } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
-import { uploadFile } from "../controllers/upload.controller.js";
+import {
+  participantAccessQuerySchema,
+  roomUploadParamsSchema
+} from "@huddle/shared";
+import {
+  uploadFile,
+  uploadRoomFile
+} from "../controllers/upload.controller.js";
 import { AppError } from "../errors/app-error.js";
-import { requireAuth } from "../middleware/auth.middleware.js";
+import { optionalAuth, requireAuth } from "../middleware/auth.middleware.js";
+import { validate } from "../middleware/validate.middleware.js";
+import { assertRoomAccess } from "../services/room.service.js";
 import {
   ALLOWED_UPLOAD_MIME_TYPES,
   MAX_UPLOAD_SIZE_BYTES
@@ -46,39 +55,63 @@ const upload = multer({
   }
 });
 
+function handleSingleUpload(
+  request: Request,
+  response: Response,
+  next: NextFunction
+) {
+  upload.single("file")(request, response, (error: unknown) => {
+    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+      return next(
+        new AppError(
+        413,
+        "FILE_TOO_LARGE",
+        "File size must not exceed 5MB."
+        )
+      );
+    }
+
+    if (error instanceof Error && error.message === "UNSUPPORTED_FILE_TYPE") {
+      return next(
+        new AppError(
+        400,
+        "INVALID_UPLOAD",
+        "This file type is not supported."
+        )
+      );
+    }
+
+    if (error) {
+      return next(error);
+    }
+
+    return next();
+  });
+}
+
 uploadRoutes.post(
   "/",
   requireAuth,
-  (request, response, next) => {
-    upload.single("file")(request, response, (error: unknown) => {
-      if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
-        return next(
-          new AppError(
-          413,
-          "FILE_TOO_LARGE",
-          "File size must not exceed 5MB."
-          )
-        );
-      }
-
-      if (error instanceof Error && error.message === "UNSUPPORTED_FILE_TYPE") {
-        return next(
-          new AppError(
-          400,
-          "INVALID_UPLOAD",
-          "This file type is not supported."
-          )
-        );
-      }
-
-      if (error) {
-        return next(error);
-      }
-
-      return next();
-    });
-  },
+  handleSingleUpload,
   asyncHandler(uploadFile)
+);
+
+uploadRoutes.post(
+  "/rooms/:roomId",
+  optionalAuth,
+  validate({ params: roomUploadParamsSchema, query: participantAccessQuerySchema }),
+  asyncHandler(async (request, _response, next) => {
+    await assertRoomAccess(request.params.roomId as string, {
+      userId: request.user?.id,
+      participantId:
+        (request.query.participantId as string | undefined) ??
+        request.header("X-Participant-Id") ??
+        undefined
+    });
+    next();
+  }),
+  handleSingleUpload,
+  asyncHandler(uploadRoomFile)
 );
 
 export default uploadRoutes;
