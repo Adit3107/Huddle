@@ -66,7 +66,7 @@ Use `.env.example` for local development and `.env.production.example` for hoste
 
 Required production groups:
 
-- Database: `DATABASE_URL`, `DIRECT_URL`
+- Database: `DATABASE_URL`; optional `DIRECT_URL` for a separate direct Prisma CLI connection
 - Redis: `REDIS_URL`
 - Auth: `AUTH_SECRET`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `JWT_SECRET`
 - URLs/CORS: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_BACKEND_URL`, `NEXTAUTH_URL`, `CORS_ORIGIN`, `SOCKET_CORS_ORIGIN`
@@ -120,7 +120,7 @@ npm run db:migrate:deploy
 
 1. Create a Neon project and database.
 2. Use the pooled connection string for `DATABASE_URL`.
-3. Use the direct connection string for `DIRECT_URL`.
+3. Optionally set the direct connection string for `DIRECT_URL`; Prisma CLI commands fall back to `DATABASE_URL` when `DIRECT_URL` is omitted.
 4. Keep SSL enabled for production.
 
 ### Redis
