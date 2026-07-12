@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "start": "next start",
     "build": "next build",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
@@ -32,7 +33,6 @@
     "qrcode": "^1.5.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-hook-form": "7.80.0",
     "socket.io-client": "^4.8.3",
     "sonner": "^2.0.7",
     "tailwind-merge": "3.6.0",

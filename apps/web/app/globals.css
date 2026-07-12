@@ -101,6 +101,11 @@ select {
   outline-color: var(--ring);
 }
 
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
 ::selection {
   background: rgb(113 232 189 / 0.35);
 }
@@ -145,5 +150,16 @@ select {
   }
   50% {
     transform: translate3d(0, -18px, 0) rotate(2deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

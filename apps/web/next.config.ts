@@ -51,6 +51,55 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL
   },
+  output: "standalone",
+  poweredByHeader: false,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com"
+      },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com"
+      },
+      {
+        protocol: "https",
+        hostname: "avatars.githubusercontent.com"
+      }
+    ]
+  },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff"
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin"
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()"
+          }
+        ]
+      }
+    ];
+  },
+  webpack(config) {
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      ".js": [".ts", ".tsx", ".js"],
+      ".mjs": [".mts", ".mjs"],
+      ".cjs": [".cts", ".cjs"]
+    };
+
+    return config;
+  },
   transpilePackages: ["@huddle/shared"]
 };
 

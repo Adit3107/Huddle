@@ -145,16 +145,6 @@ export function LandingPage() {
     <main className="aurora-shell min-h-screen text-foreground">
       <LandingNav />
       <section className="relative mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-7xl content-center px-5 py-20 sm:px-8 lg:py-28">
-        <motion.div
-          animate={{ opacity: 0.9, scale: [1, 1.04, 1] }}
-          className="absolute right-8 top-24 hidden size-64 rounded-full border border-emerald-300/20 bg-emerald-300/10 blur-sm lg:block"
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div
-          animate={{ y: [0, -18, 0], rotate: [0, 2, 0] }}
-          className="absolute bottom-16 left-8 hidden h-44 w-72 rounded-[2rem] border border-violet-300/15 bg-violet-300/10 blur-[1px] lg:block"
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-        />
         <div className="relative grid gap-12 lg:grid-cols-[1.04fr_0.96fr] lg:items-center">
           <div>
             <motion.div {...fadeUp()}>
@@ -304,7 +294,7 @@ export function LandingPage() {
               key={testimonial.name}
             >
               <blockquote className="text-base leading-7">
-                “{testimonial.quote}”
+                &ldquo;{testimonial.quote}&rdquo;
               </blockquote>
               <figcaption className="mt-8">
                 <p className="font-medium">{testimonial.name}</p>
@@ -324,11 +314,11 @@ export function LandingPage() {
             <div className="max-w-2xl">
               <Layers3 aria-hidden="true" className="mb-5 size-6 text-emerald-300" />
               <h2 className="text-4xl font-semibold tracking-normal">
-                Build the room first. Bring chat later.
+                Build the room. Keep the context.
               </h2>
               <p className="mt-4 text-muted-foreground">
-                HUDDLE is now ready for polished room creation, sharing, and
-                management before the messaging layer begins.
+                HUDDLE keeps room creation, realtime chat, sharing, and
+                management in one focused workspace.
               </p>
             </div>
             {authenticated ? (

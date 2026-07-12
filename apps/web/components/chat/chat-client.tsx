@@ -29,6 +29,7 @@ import {
   UsersRound,
   X
 } from "lucide-react";
+import Image from "next/image";
 import QRCode from "qrcode";
 import type * as React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -294,10 +295,12 @@ function MessageBubble({
           ) : null}
           {imageUrl ? (
             <a href={imageUrl} rel="noreferrer" target="_blank">
-              <img
+              <Image
                 alt={message.fileName ?? "Uploaded image"}
-                className="mt-3 max-h-80 rounded-xl object-contain"
+                className="mt-3 h-auto max-h-80 w-auto rounded-xl object-contain"
+                height={320}
                 src={imageUrl}
+                width={480}
               />
             </a>
           ) : message.fileUrl ? (
@@ -1195,10 +1198,13 @@ export function ChatClient({
           {uploadDraft ? (
             <div className="mb-3 flex items-center gap-3 rounded-2xl border border-border bg-background/45 p-3">
               {uploadDraft.previewUrl ? (
-                <img
+                <Image
                   alt="Upload preview"
                   className="size-14 rounded-xl object-cover"
+                  height={56}
+                  unoptimized
                   src={uploadDraft.previewUrl}
+                  width={56}
                 />
               ) : (
                 <div className="grid size-14 place-items-center rounded-xl bg-secondary">
@@ -1250,8 +1256,8 @@ export function ChatClient({
               }}
               type="file"
             />
-            <Button asChild size="icon" type="button" variant="outline">
-              <label htmlFor="chat-file">
+            <Button asChild size="icon" variant="outline">
+              <label aria-label="Attach file" htmlFor="chat-file">
                 <Paperclip aria-hidden="true" />
               </label>
             </Button>
@@ -1307,11 +1313,13 @@ export function ChatClient({
       <AnimatePresence>
         {sidebarOpen ? (
           <motion.div
+            aria-modal="true"
             animate={{ opacity: 1 }}
             className="fixed inset-0 z-50 bg-black/45 lg:hidden"
             exit={{ opacity: 0 }}
             initial={{ opacity: 0 }}
             onClick={() => setSidebarOpen(false)}
+            role="dialog"
           >
             <motion.div
               animate={{ x: 0 }}
@@ -1349,7 +1357,14 @@ export function ChatClient({
           </DialogHeader>
           <div className="grid place-items-center rounded-2xl border border-border bg-white p-5">
             {qrDataUrl ? (
-              <img alt="Room QR code" className="size-64" src={qrDataUrl} />
+              <Image
+                alt="Room QR code"
+                className="size-64"
+                height={256}
+                unoptimized
+                src={qrDataUrl}
+                width={256}
+              />
             ) : (
               <Loader2 className="size-8 animate-spin text-muted-foreground" />
             )}
