@@ -7,12 +7,14 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { createServer } from "node:http";
 import { pinoHttp } from "pino-http";
+import { getCorsOrigins, validateProductionEnv } from "./config/env.js";
 import {
   globalErrorHandler,
   notFoundHandler
 } from "./middleware/error.middleware.js";
 import { sanitizeInput } from "./middleware/security.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
+import healthRoutes from "./routes/health.routes.js";
 import messageRoutes from "./routes/message.routes.js";
 import roomRoutes from "./routes/room.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
@@ -20,14 +22,23 @@ import { configureRealtime } from "./realtime/socket.js";
 import { logger } from "./utils/logger.js";
 
 dotenv.config({ quiet: true });
+validateProductionEnv();
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
+const corsOrigins = getCorsOrigins();
 
-app.use(helmet());
+app.set("trust proxy", 1);
+app.use(
+  helmet({
+    crossOriginResourcePolicy: {
+      policy: "cross-origin"
+    }
+  })
+);
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN ?? process.env.NEXT_PUBLIC_APP_URL,
+    origin: corsOrigins,
     credentials: true
   })
 );
@@ -49,6 +60,7 @@ app.use(
   })
 );
 
+app.use("/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/messages", messageRoutes);

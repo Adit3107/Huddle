@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" role="img" aria-label="HUDDLE">
+  <rect width="180" height="180" rx="40" fill="#07080b"/>
+  <path d="M46 58a24 24 0 0 1 24-24h40a24 24 0 0 1 24 24v32a24 24 0 0 1-24 24H91l-29 26.5A8 8 0 0 1 46 134V58Z" fill="#71e8bd"/>
+  <circle cx="71" cy="74" r="8" fill="#07080b"/>
+  <circle cx="90" cy="74" r="8" fill="#07080b"/>
+  <circle cx="109" cy="74" r="8" fill="#07080b"/>
+</svg>

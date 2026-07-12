@@ -10,6 +10,7 @@ import { createAdapter } from "@socket.io/redis-adapter";
 import { randomUUID } from "node:crypto";
 import type { Server as HttpServer } from "node:http";
 import { Server, type Socket } from "socket.io";
+import { getCorsOrigins } from "../config/env.js";
 import { createSocketRedisConnection } from "../config/redis.js";
 import { AppError } from "../errors/app-error.js";
 import { enqueueMessagePersistence } from "../queues/realtime.producer.js";
@@ -53,11 +54,17 @@ function getHandshakeString(value: unknown) {
 }
 
 function socketCorsOrigin() {
-  return (
+  const rawOrigin =
     process.env.SOCKET_CORS_ORIGIN ??
     process.env.CORS_ORIGIN ??
-    process.env.NEXT_PUBLIC_APP_URL
-  );
+    process.env.NEXT_PUBLIC_APP_URL;
+
+  return rawOrigin
+    ? rawOrigin
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+    : getCorsOrigins();
 }
 
 function handleSocketError(
