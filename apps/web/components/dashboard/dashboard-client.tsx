@@ -114,10 +114,10 @@ function toIsoOrNull(value: string) {
 
 function roomUrl(roomId: string) {
   if (typeof window === "undefined") {
-    return `/rooms/${roomId}`;
+    return `/chat/${roomId}`;
   }
 
-  return `${window.location.origin}/rooms/${roomId}`;
+  return `${window.location.origin}/chat/${roomId}`;
 }
 
 function StatCard({

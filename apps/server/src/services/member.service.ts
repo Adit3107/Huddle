@@ -1,10 +1,16 @@
 import { Prisma } from "@prisma/client";
 import prisma from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
-import { assertRoomOwner } from "./room.service.js";
+import { assertRoomAccess, assertRoomOwner } from "./room.service.js";
 
-export async function listMembers(roomId: string, userId: string) {
-  await assertRoomOwner(roomId, userId);
+export async function listMembers(
+  roomId: string,
+  options: {
+    userId?: string;
+    participantId?: string;
+  }
+) {
+  await assertRoomAccess(roomId, options);
 
   return prisma.groupUser.findMany({
     where: {

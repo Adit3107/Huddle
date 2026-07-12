@@ -17,6 +17,10 @@ export const roomIdParamsSchema = z.object({
   roomId: cuidSchema
 });
 
+export const roomUploadParamsSchema = z.object({
+  roomId: cuidSchema
+});
+
 export const roomTypeSchema = z.enum(["QUICK", "GROUP"]);
 
 export const createRoomSchema = z.object({
@@ -59,6 +63,10 @@ export const joinRoomSchema = z.object({
 
 export const inviteMemberSchema = z.object({
   email: z.string().trim().email().toLowerCase()
+});
+
+export const participantAccessQuerySchema = z.object({
+  participantId: cuidSchema.optional()
 });
 
 export const removeMemberParamsSchema = z.object({

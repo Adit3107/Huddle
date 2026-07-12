@@ -4,6 +4,7 @@ import {
   createRoom,
   getRoomAnalytics,
   getRoomForUser,
+  getRoomPreview,
   joinRoom,
   listRooms,
   updateRoom
@@ -29,6 +30,15 @@ export async function listRoomsController(request: Request, response: Response) 
 export async function getRoomController(request: Request, response: Response) {
   const user = requireRequestUser(request);
   const room = await getRoomForUser(getParam(request, "id"), user.id);
+
+  return sendSuccess(response, room);
+}
+
+export async function getRoomPreviewController(
+  request: Request,
+  response: Response
+) {
+  const room = await getRoomPreview(getParam(request, "id"));
 
   return sendSuccess(response, room);
 }

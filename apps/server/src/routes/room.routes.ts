@@ -1,6 +1,7 @@
 import {
   createRoomSchema,
   idParamsSchema,
+  participantAccessQuerySchema,
   joinRoomSchema,
   removeMemberParamsSchema,
   roomsQuerySchema,
@@ -12,6 +13,7 @@ import {
   createRoomController,
   deleteRoomController,
   getRoomController,
+  getRoomPreviewController,
   joinRoomController,
   listRoomsController,
   roomAnalyticsController,
@@ -40,6 +42,12 @@ roomRoutes.post(
   requireAuth,
   validate({ body: createRoomSchema }),
   asyncHandler(createRoomController)
+);
+
+roomRoutes.get(
+  "/:id/preview",
+  validate({ params: idParamsSchema }),
+  asyncHandler(getRoomPreviewController)
 );
 
 roomRoutes.get(
@@ -79,8 +87,8 @@ roomRoutes.get(
 
 roomRoutes.get(
   "/:id/members",
-  requireAuth,
-  validate({ params: idParamsSchema }),
+  optionalAuth,
+  validate({ params: idParamsSchema, query: participantAccessQuerySchema }),
   asyncHandler(listMembersController)
 );
 

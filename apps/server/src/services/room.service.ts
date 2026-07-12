@@ -70,6 +70,34 @@ export async function getRoomOrThrow(roomId: string) {
   return room;
 }
 
+export async function getRoomPreview(roomId: string) {
+  const room = await prisma.chatGroup.findUnique({
+    where: {
+      id: roomId
+    },
+    select: roomSelect
+  });
+
+  if (!room) {
+    throw new AppError(404, "ROOM_NOT_FOUND", "Room was not found.");
+  }
+
+  return {
+    id: room.id,
+    title: room.title,
+    roomType: room.roomType,
+    description: room.description,
+    expiresAt: room.expiresAt,
+    createdBy: room.createdBy,
+    isArchived: room.isArchived,
+    isExpired: Boolean(room.expiresAt && room.expiresAt.getTime() <= Date.now()),
+    hasPasscode: Boolean(room.passcode),
+    createdAt: room.createdAt,
+    updatedAt: room.updatedAt,
+    _count: room._count
+  };
+}
+
 export async function assertRoomOwner(roomId: string, userId: string) {
   const room = await getRoomOrThrow(roomId);
 
