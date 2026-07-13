@@ -1,11 +1,11 @@
-export interface GoogleLoginPayload {
+export interface IdentityLoginPayload {
   email?: unknown;
   name?: unknown;
   image?: unknown;
   providerId?: unknown;
 }
 
-export interface ValidGoogleLoginPayload {
+export interface ValidIdentityLoginPayload {
   email: string;
   name: string;
   image: string | null;

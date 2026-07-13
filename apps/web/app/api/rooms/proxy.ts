@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/auth";
+import { getCurrentSession } from "@/lib/auth";
 import { getBackendUrl } from "@/lib/rooms";
 
 type ProxyMethod = "GET" | "POST" | "PATCH" | "DELETE";
@@ -9,9 +9,13 @@ export async function proxyRoomRequest(
   path: string,
   method: ProxyMethod
 ) {
-  const session = await auth();
+  const incomingAuthorization = request.headers.get("authorization");
+  const session = incomingAuthorization ? null : await getCurrentSession();
+  const authorization =
+    incomingAuthorization ??
+    (session?.backendToken ? `Bearer ${session.backendToken}` : null);
 
-  if (!session?.backendToken) {
+  if (!authorization) {
     return NextResponse.json(
       {
         success: false,
@@ -25,7 +29,7 @@ export async function proxyRoomRequest(
   }
 
   const headers = new Headers();
-  headers.set("Authorization", `Bearer ${session.backendToken}`);
+  headers.set("Authorization", authorization);
 
   let body: string | undefined;
 

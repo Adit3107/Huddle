@@ -27,7 +27,7 @@ export function globalErrorHandler(
 
   if (error instanceof AppError) {
     if (error.statusCode >= 500) {
-      logger.error({ error, path: request.originalUrl }, error.message);
+      logger.error({ err: error, path: request.originalUrl }, error.message);
     } else {
       logger.warn({ code: error.code, path: request.originalUrl }, error.message);
     }
@@ -35,7 +35,7 @@ export function globalErrorHandler(
     return sendError(response, error.statusCode, error.code, error.message);
   }
 
-  logger.error({ error, path: request.originalUrl }, "Unhandled server error");
+  logger.error({ err: error, path: request.originalUrl }, "Unhandled server error");
 
   return sendError(
     response,

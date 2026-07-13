@@ -14,7 +14,7 @@ import {
   Zap
 } from "lucide-react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@clerk/nextjs";
 import { LoginButton, LogoutButton } from "@/components/auth-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
@@ -96,8 +96,7 @@ function fadeUp(delay = 0) {
 }
 
 function LandingNav() {
-  const { status } = useSession();
-  const authenticated = status === "authenticated";
+  const { isSignedIn } = useAuth();
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/70 backdrop-blur-2xl">
@@ -121,7 +120,7 @@ function LandingNav() {
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          {authenticated ? (
+          {isSignedIn ? (
             <>
               <Button asChild className="hidden sm:inline-flex" variant="secondary">
                 <Link href="/dashboard">Dashboard</Link>
@@ -138,8 +137,7 @@ function LandingNav() {
 }
 
 export function LandingPage() {
-  const { status } = useSession();
-  const authenticated = status === "authenticated";
+  const { isSignedIn } = useAuth();
 
   return (
     <main className="aurora-shell min-h-screen text-foreground">
@@ -171,7 +169,7 @@ export function LandingPage() {
               {...fadeUp(0.24)}
               className="mt-9 flex flex-col gap-3 sm:flex-row"
             >
-              {authenticated ? (
+              {isSignedIn ? (
                 <Button asChild size="lg">
                   <Link href="/dashboard">
                     Open dashboard <ArrowRight aria-hidden="true" />
@@ -321,7 +319,7 @@ export function LandingPage() {
                 management in one focused workspace.
               </p>
             </div>
-            {authenticated ? (
+            {isSignedIn ? (
               <Button asChild size="lg">
                 <Link href="/dashboard">Open dashboard</Link>
               </Button>

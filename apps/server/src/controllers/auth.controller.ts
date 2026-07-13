@@ -1,16 +1,16 @@
 import type { Request, Response } from "express";
 import { AppError } from "../errors/app-error.js";
 import { signAuthToken } from "../services/jwt.service.js";
-import { DuplicateUserError, upsertGoogleUser } from "../services/user.service.js";
-import type { ValidGoogleLoginPayload } from "../types/auth.js";
+import { DuplicateUserError, upsertIdentityUser } from "../services/user.service.js";
+import type { ValidIdentityLoginPayload } from "../types/auth.js";
 import { sendSuccess } from "../utils/api-response.js";
 
-export async function loginWithGoogle(
-  request: Request<unknown, unknown, ValidGoogleLoginPayload>,
+export async function loginWithIdentity(
+  request: Request<unknown, unknown, ValidIdentityLoginPayload>,
   response: Response
 ) {
   try {
-    const user = await upsertGoogleUser(request.body);
+    const user = await upsertIdentityUser(request.body);
     const token = signAuthToken(user);
 
     return sendSuccess(response, {

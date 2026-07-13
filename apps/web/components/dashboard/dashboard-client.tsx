@@ -17,14 +17,12 @@ import {
   Zap
 } from "lucide-react";
 import QRCode from "qrcode";
-import type { Session } from "next-auth";
+import { UserButton } from "@clerk/nextjs";
 import Image from "next/image";
 import type * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { LogoutButton } from "@/components/auth-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -79,6 +77,15 @@ interface RoomFormState {
   passcode: string;
 }
 
+interface DashboardSession {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    image: string | null;
+  };
+}
+
 const emptyForm: RoomFormState = {
   title: "",
   roomType: "QUICK",
@@ -86,17 +93,6 @@ const emptyForm: RoomFormState = {
   expiresAt: "",
   passcode: ""
 };
-
-function initials(name?: string | null) {
-  return (
-    name
-      ?.split(" ")
-      .map((part) => part[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "HD"
-  );
-}
 
 function toDatetimeLocal(value: string | null) {
   if (!value) {
@@ -273,7 +269,7 @@ export function DashboardClient({
   token
 }: {
   initialRooms: HuddleRoom[];
-  session: Session;
+  session: DashboardSession;
   token: string;
 }) {
   const [rooms, setRooms] = useState(initialRooms);
@@ -447,32 +443,21 @@ export function DashboardClient({
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button className="rounded-full p-0" size="icon" variant="ghost">
-                  <Avatar className="size-9">
-                    <AvatarImage
-                      alt={session.user?.name ?? "Profile"}
-                      src={session.user?.image ?? undefined}
-                    />
-                    <AvatarFallback>{initials(session.user?.name)}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuLabel>
-                  <span className="block truncate">{session.user?.name}</span>
-                  <span className="block truncate text-xs font-normal text-muted-foreground">
-                    {session.user?.email}
-                  </span>
-                </DropdownMenuLabel>
-                <DropdownMenuItem asChild>
-                  <div>
-                    <LogoutButton className="w-full justify-start" variant="ghost" />
-                  </div>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="hidden min-w-0 text-right sm:block">
+              <span className="block truncate text-sm font-medium">
+                {session.user.name}
+              </span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {session.user.email}
+              </span>
+            </div>
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: "size-9"
+                }
+              }}
+            />
           </div>
         </div>
       </header>

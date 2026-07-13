@@ -2,18 +2,18 @@ import { Prisma } from "@prisma/client";
 import prisma from "../config/prisma.js";
 import type {
   AuthenticatedUserResponse,
-  ValidGoogleLoginPayload
+  ValidIdentityLoginPayload
 } from "../types/auth.js";
 
 export class DuplicateUserError extends Error {
   constructor() {
-    super("A user with this email or Google account already exists.");
+    super("A user with this email or identity account already exists.");
     this.name = "DuplicateUserError";
   }
 }
 
-export async function upsertGoogleUser(
-  profile: ValidGoogleLoginPayload
+export async function upsertIdentityUser(
+  profile: ValidIdentityLoginPayload
 ): Promise<AuthenticatedUserResponse> {
   try {
     const user = await prisma.user.upsert({
@@ -24,13 +24,13 @@ export async function upsertGoogleUser(
         email: profile.email,
         name: profile.name,
         image: profile.image,
-        provider: "google",
+        provider: "clerk",
         providerId: profile.providerId
       },
       update: {
         name: profile.name,
         image: profile.image,
-        provider: "google",
+        provider: "clerk",
         providerId: profile.providerId
       },
       select: {

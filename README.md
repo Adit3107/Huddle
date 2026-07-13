@@ -4,13 +4,13 @@ HUDDLE is a production-ready collaboration SaaS for creating focused realtime ro
 
 ## Architecture
 
-- `apps/web`: Next.js 15, React 19, Auth.js, Tailwind CSS v4, Socket.IO client.
+- `apps/web`: Next.js 15, React 19, Clerk, Tailwind CSS v4, Socket.IO client.
 - `apps/server`: Express 5 API, Socket.IO realtime gateway, Prisma, PostgreSQL, Redis, BullMQ worker, Cloudinary uploads.
 - `packages/shared`: Shared TypeScript types, Zod schemas, constants, and helpers.
 
 ## Features
 
-- Google authentication through Auth.js with backend JWT session bridging.
+- Google authentication through Clerk with backend JWT session bridging.
 - Dashboard for room creation, editing, deletion, analytics, QR codes, and search.
 - Quick Rooms with optional expiry and passcodes.
 - Group rooms for persistent team collaboration.
@@ -68,8 +68,8 @@ Required production groups:
 
 - Database: `DATABASE_URL`; optional `DIRECT_URL` for a separate direct Prisma CLI connection
 - Redis: `REDIS_URL`
-- Auth: `AUTH_SECRET`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `JWT_SECRET`
-- URLs/CORS: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_BACKEND_URL`, `NEXTAUTH_URL`, `CORS_ORIGIN`, `SOCKET_CORS_ORIGIN`
+- Auth: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `JWT_SECRET`
+- URLs/CORS: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_BACKEND_URL`, `CORS_ORIGIN`, `SOCKET_CORS_ORIGIN`
 - Cloudinary: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
 
 Generate secrets with:

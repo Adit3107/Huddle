@@ -83,7 +83,7 @@ export const roomsQuerySchema = z.object({
   roomType: roomTypeSchema.optional()
 });
 
-export const googleLoginSchema = z.object({
+export const identityLoginSchema = z.object({
   email: z.string().trim().email().toLowerCase(),
   name: z.string().trim().min(1),
   image: z
