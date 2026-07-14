@@ -13,23 +13,31 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   ArrowDown,
+  ArrowLeft,
   Clock3,
   Copy,
   Download,
+  Edit3,
   FileText,
   Loader2,
   LogOut,
+  MessageCircle,
   Menu,
   Paperclip,
   QrCode,
   RefreshCw,
   Send,
+  Settings,
+  Share2,
   Shield,
   Sparkles,
+  Trash2,
+  UserMinus,
   UsersRound,
   X
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import QRCode from "qrcode";
 import type * as React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -38,22 +46,27 @@ import { toast } from "sonner";
 import {
   getChatPreview,
   joinChatRoom,
+  leaveChatRoom,
   listChatMembers,
   listChatMessages,
   makeOptimisticMessage,
   normalizePersistedMessage,
+  removeChatMember,
   uploadChatFile,
   type ChatMessage,
   type LocalParticipant
 } from "@/lib/chat";
+import { deleteRoom, formatDate, updateRoom } from "@/lib/rooms";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
@@ -67,6 +80,7 @@ type ConnectionStatus =
   | "connected"
   | "disconnected"
   | "reconnecting";
+type ShareMode = "link" | "qr";
 
 interface ChatClientProps {
   roomId: string;
@@ -105,6 +119,16 @@ function formatTime(value: string) {
   }).format(new Date(value));
 }
 
+function toDatetimeLocal(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+}
+
 function isNearBottom(element: HTMLDivElement) {
   return element.scrollHeight - element.scrollTop - element.clientHeight < 160;
 }
@@ -137,6 +161,46 @@ function removeStoredParticipant(roomId: string) {
 
 function roomUrl(roomId: string) {
   return `${window.location.origin}/chat/${roomId}`;
+}
+
+function roomExpiryText(preview: Pick<ChatRoomPreview, "roomType" | "expiresAt">) {
+  return preview.roomType === "GROUP" ? "Permanent" : formatDate(preview.expiresAt);
+}
+
+function shareText(preview: ChatRoomPreview) {
+  const noun = preview.roomType === "GROUP" ? "group" : "room";
+  return `Join this ${noun} "${preview.title}" on HUDDLE: ${roomUrl(preview.id)}`;
+}
+
+async function copyShareMessage(preview: ChatRoomPreview) {
+  await navigator.clipboard.writeText(shareText(preview));
+  toast.success("Share message copied");
+}
+
+function openShareUrl(kind: "whatsapp" | "telegram", preview: ChatRoomPreview) {
+  const text = encodeURIComponent(shareText(preview));
+  const url =
+    kind === "whatsapp"
+      ? `https://wa.me/?text=${text}`
+      : `https://t.me/share/url?url=${encodeURIComponent(roomUrl(preview.id))}&text=${encodeURIComponent(
+          shareText(preview).replace(roomUrl(preview.id), "").trim()
+        )}`;
+
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+async function shareToInstagram(preview: ChatRoomPreview) {
+  if (navigator.share) {
+    await navigator.share({
+      title: preview.title,
+      text: shareText(preview),
+      url: roomUrl(preview.id)
+    });
+    return;
+  }
+
+  await copyShareMessage(preview);
+  toast.info("Paste the copied invite into Instagram");
 }
 
 function Countdown({ preview }: { preview: ChatRoomPreview }) {
@@ -208,11 +272,15 @@ function StatusPanel({
 }
 
 function MemberList({
+  canManage,
   members,
+  onRemove,
   ownerId,
   onlineParticipants
 }: {
+  canManage: boolean;
   members: ChatParticipant[];
+  onRemove: (member: ChatParticipant) => void;
   ownerId: string;
   onlineParticipants: Set<string>;
 }) {
@@ -244,6 +312,17 @@ function MemberList({
               onlineParticipants.has(member.id) ? "bg-emerald-300" : "bg-muted"
             )}
           />
+          {canManage && member.userId !== ownerId ? (
+            <Button
+              aria-label={`Remove ${member.displayName}`}
+              onClick={() => onRemove(member)}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <UserMinus aria-hidden="true" className="size-4" />
+            </Button>
+          ) : null}
         </div>
       ))}
     </div>
@@ -330,11 +409,15 @@ function MessageBubble({
 
 function JoinDialog({
   open,
+  defaultName,
+  defaultPasscode,
   hasPasscode,
   joining,
   onJoin
 }: {
   open: boolean;
+  defaultName: string;
+  defaultPasscode: string;
   hasPasscode: boolean;
   joining: boolean;
   onJoin: (payload: {
@@ -345,11 +428,18 @@ function JoinDialog({
   }) => void;
 }) {
   const [alias, setAlias] = useState(() => generateAlias());
-  const [displayName, setDisplayName] = useState("");
+  const [displayName, setDisplayName] = useState(defaultName);
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const [passcode, setPasscode] = useState("");
+  const [passcode, setPasscode] = useState(defaultPasscode);
 
   const visibleName = isAnonymous ? alias.alias : displayName;
+
+  useEffect(() => {
+    if (open) {
+      setDisplayName(defaultName);
+      setPasscode(defaultPasscode);
+    }
+  }, [defaultName, defaultPasscode, open]);
 
   return (
     <Dialog open={open}>
@@ -455,6 +545,7 @@ export function ChatClient({
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
+  const [groupMembershipChecked, setGroupMembershipChecked] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("idle");
@@ -468,6 +559,25 @@ export function ChatClient({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [shareMode, setShareMode] = useState<ShareMode>("link");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<ChatParticipant | null>(null);
+  const [roomActionLoading, setRoomActionLoading] = useState(false);
+  const [joinPasscodeHint, setJoinPasscodeHint] = useState(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    return window.sessionStorage.getItem(`huddle:join:${roomId}:passcode`) ?? "";
+  });
+  const [settingsForm, setSettingsForm] = useState({
+    title: "",
+    description: "",
+    expiresAt: "",
+    passcode: ""
+  });
+  const [settingsPasscodeDirty, setSettingsPasscodeDirty] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
@@ -478,10 +588,31 @@ export function ChatClient({
   const isJoined = Boolean(participant);
   const ownParticipantId = participant?.participantId;
   const ownUserId = user?.id ?? null;
+  const isOwner = Boolean(user && preview?.createdBy === user.id);
+  const showJoinDialog =
+    !participant &&
+    (preview?.roomType === "QUICK" ||
+      (preview?.roomType === "GROUP" &&
+        Boolean(backendToken) &&
+        groupMembershipChecked));
 
   useEffect(() => {
     participantRef.current = participant;
   }, [participant]);
+
+  useEffect(() => {
+    if (!preview) {
+      return;
+    }
+
+    setSettingsForm({
+      title: preview.title,
+      description: preview.description ?? "",
+      expiresAt: toDatetimeLocal(preview.expiresAt),
+      passcode: ""
+    });
+    setSettingsPasscodeDirty(false);
+  }, [preview]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -497,6 +628,7 @@ export function ChatClient({
         }
 
         setPreview(room);
+        setGroupMembershipChecked(false);
 
         if (room.isArchived) {
           setError("This room has been archived.");
@@ -514,6 +646,7 @@ export function ChatClient({
         }
 
         if (room.roomType === "QUICK") {
+          setGroupMembershipChecked(true);
           const stored = loadStoredParticipant(roomId);
 
           if (stored) {
@@ -541,7 +674,9 @@ export function ChatClient({
       setMembers(items);
 
       if (!currentParticipant && user) {
-        const member = items.find((item) => item.userId === user.id);
+        const member = items.find(
+          (item) => item.userId === user.id || item.user?.email === user.email
+        );
 
         if (member) {
           setParticipant({
@@ -560,9 +695,13 @@ export function ChatClient({
   );
 
   const loadMessages = useCallback(
-    async (currentMembers: ChatParticipant[], cursor?: string | null) => {
+    async (
+      currentMembers: ChatParticipant[],
+      cursor?: string | null,
+      currentParticipant = participantRef.current
+    ) => {
       const data = await listChatMessages(roomId, {
-        participantId: participantRef.current?.participantId,
+        participantId: currentParticipant?.participantId,
         cursor,
         limit: MESSAGE_PAGE_SIZE
       });
@@ -586,10 +725,12 @@ export function ChatClient({
 
     let active = true;
 
-    refreshMembers()
+    const currentParticipant = participantRef.current;
+
+    refreshMembers(currentParticipant)
       .then((items) => {
         if (active) {
-          return loadMessages(items);
+          return loadMessages(items, null, currentParticipant);
         }
 
         return undefined;
@@ -613,13 +754,22 @@ export function ChatClient({
       return;
     }
 
-    refreshMembers().catch((caught: unknown) => {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "You do not have access to this group."
-      );
-    });
+    let active = true;
+    setGroupMembershipChecked(false);
+
+    refreshMembers()
+      .catch(() => {
+        setMembers([]);
+      })
+      .finally(() => {
+        if (active) {
+          setGroupMembershipChecked(true);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, [backendToken, participant, preview, refreshMembers]);
 
   const mergeRealtimeMessages = useCallback((incoming: RealtimeMessage[]) => {
@@ -826,6 +976,8 @@ export function ChatClient({
 
       saveStoredParticipant(roomId, localParticipant);
       setParticipant(localParticipant);
+      window.sessionStorage.removeItem(`huddle:join:${roomId}:passcode`);
+      setJoinPasscodeHint("");
       toast.success("Joined room");
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "Unable to join room");
@@ -962,15 +1114,116 @@ export function ChatClient({
     toast.success("Room link copied");
   };
 
-  const leaveRoom = () => {
-    socketRef.current?.emit("leave-room", { roomId });
-    socketRef.current?.disconnect();
+  const performLeave = async () => {
+    setRoomActionLoading(true);
+    try {
+      await leaveChatRoom(roomId, preview?.roomType === "QUICK" ? participant?.participantId : null);
+      socketRef.current?.emit("leave-room", { roomId });
+      socketRef.current?.disconnect();
 
+      if (preview?.roomType === "QUICK") {
+        removeStoredParticipant(roomId);
+      }
+
+      toast.success("Left room");
+      window.location.href = preview?.roomType === "GROUP" ? "/dashboard" : "/";
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Unable to leave room");
+    } finally {
+      setRoomActionLoading(false);
+      setLeaveConfirmOpen(false);
+    }
+  };
+
+  const requestLeaveRoom = () => {
     if (preview?.roomType === "QUICK") {
-      removeStoredParticipant(roomId);
+      void performLeave();
+      return;
     }
 
-    window.location.href = preview?.roomType === "GROUP" ? "/dashboard" : "/";
+    setLeaveConfirmOpen(true);
+  };
+
+  const submitSettings = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!backendToken || !preview || !isOwner) {
+      return;
+    }
+
+    if (settingsPasscodeDirty && settingsForm.passcode.trim().length < 4) {
+      toast.error("Passcode must be at least 4 characters");
+      return;
+    }
+
+    setRoomActionLoading(true);
+    try {
+      const updated = await updateRoom(backendToken, roomId, {
+        title: settingsForm.title.trim(),
+        description: settingsForm.description.trim() || null,
+        expiresAt: preview.roomType === "GROUP"
+          ? null
+          : settingsForm.expiresAt
+          ? new Date(settingsForm.expiresAt).toISOString()
+          : null,
+        ...(settingsPasscodeDirty
+          ? { passcode: settingsForm.passcode.trim() }
+          : {})
+      });
+
+      setPreview((current) =>
+        current
+          ? {
+              ...current,
+              title: updated.title,
+              description: updated.description,
+              expiresAt: updated.expiresAt,
+              hasPasscode: Boolean(updated.passcode)
+            }
+          : current
+      );
+      toast.success("Room updated");
+      setSettingsOpen(false);
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Unable to update room");
+    } finally {
+      setRoomActionLoading(false);
+    }
+  };
+
+  const archiveRoom = async () => {
+    if (!backendToken || !isOwner) {
+      return;
+    }
+
+    setRoomActionLoading(true);
+    try {
+      await deleteRoom(backendToken, roomId);
+      toast.success("Room archived");
+      window.location.href = "/dashboard";
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Unable to archive room");
+    } finally {
+      setRoomActionLoading(false);
+    }
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!removeTarget) {
+      return;
+    }
+
+    setRoomActionLoading(true);
+    try {
+      await removeChatMember(roomId, removeTarget.id);
+      setMembers((current) => current.filter((item) => item.id !== removeTarget.id));
+      toast.success("Member removed");
+      setRemoveTarget(null);
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Unable to remove member");
+    } finally {
+      setRoomActionLoading(false);
+    }
   };
 
   const memberPanel = preview ? (
@@ -986,7 +1239,9 @@ export function ChatClient({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <MemberList
+          canManage={isOwner}
           members={members}
+          onRemove={setRemoveTarget}
           onlineParticipants={onlineParticipants}
           ownerId={preview.createdBy}
         />
@@ -1029,6 +1284,21 @@ export function ChatClient({
     );
   }
 
+  if (
+    preview.roomType === "GROUP" &&
+    backendToken &&
+    !participant &&
+    !groupMembershipChecked
+  ) {
+    return (
+      <StatusPanel
+        description="Checking your room membership before opening the chat."
+        icon={Loader2}
+        title="Opening chat"
+      />
+    );
+  }
+
   return (
     <main
       className="flex h-screen overflow-hidden bg-background text-foreground"
@@ -1043,15 +1313,22 @@ export function ChatClient({
       }}
     >
       <JoinDialog
+        defaultName={user?.name ?? ""}
+        defaultPasscode={joinPasscodeHint}
         hasPasscode={preview.hasPasscode}
         joining={joining}
         onJoin={handleJoin}
-        open={preview.roomType === "QUICK" && !participant}
+        open={showJoinDialog}
       />
 
       <section className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-card/70 px-3 backdrop-blur-xl sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
+            <Button asChild aria-label="Back to home" size="icon" variant="ghost">
+              <Link href="/">
+                <ArrowLeft aria-hidden="true" />
+              </Link>
+            </Button>
             <Button
               aria-label="Open members"
               className="lg:hidden"
@@ -1062,11 +1339,18 @@ export function ChatClient({
             >
               <Menu aria-hidden="true" />
             </Button>
-            <div className="grid size-10 place-items-center rounded-2xl border border-emerald-300/20 bg-emerald-300/10">
+            <div
+              className={cn(
+                "grid size-10 place-items-center rounded-2xl border",
+                preview.roomType === "QUICK"
+                  ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-300"
+                  : "border-violet-300/25 bg-violet-300/10 text-violet-300"
+              )}
+            >
               {preview.roomType === "QUICK" ? (
-                <Sparkles className="size-5 text-emerald-300" />
+                <Sparkles className="size-5" />
               ) : (
-                <Shield className="size-5 text-emerald-300" />
+                <Shield className="size-5" />
               )}
             </div>
             <div className="min-w-0">
@@ -1077,8 +1361,12 @@ export function ChatClient({
                 <Badge variant={preview.roomType === "QUICK" ? "accent" : "secondary"}>
                   {preview.roomType === "QUICK" ? "Quick Room" : "Group"}
                 </Badge>
+                {isOwner ? <Badge variant="accent">Owner</Badge> : null}
                 <span className="hidden text-xs text-muted-foreground sm:inline">
                   {onlineParticipants.size} online
+                </span>
+                <span className="hidden text-xs text-muted-foreground md:inline">
+                  {members.length} members
                 </span>
               </div>
             </div>
@@ -1086,27 +1374,26 @@ export function ChatClient({
           <div className="flex items-center gap-2">
             <Countdown preview={preview} />
             <Button
-              aria-label="Show QR code"
-              onClick={() => setQrOpen(true)}
+              aria-label={isOwner ? "Room settings" : "Room info"}
+              onClick={() => setSettingsOpen(true)}
               size="icon"
               type="button"
               variant="outline"
             >
-              <QrCode aria-hidden="true" />
+              <Settings aria-hidden="true" />
             </Button>
             <Button
-              aria-label="Copy room link"
-              className="hidden sm:inline-flex"
-              onClick={copyLink}
-              size="icon"
+              aria-label="Share room link"
+              onClick={() => setQrOpen(true)}
               type="button"
               variant="outline"
             >
-              <Copy aria-hidden="true" />
+              <Share2 aria-hidden="true" />
+              <span className="hidden sm:inline">Share Link</span>
             </Button>
             <Button
               aria-label="Leave room"
-              onClick={leaveRoom}
+              onClick={requestLeaveRoom}
               size="icon"
               type="button"
               variant="ghost"
@@ -1347,31 +1634,274 @@ export function ChatClient({
         ) : null}
       </AnimatePresence>
 
-      <Dialog onOpenChange={setQrOpen} open={qrOpen}>
+      <Dialog
+        onOpenChange={(open) => {
+          setQrOpen(open);
+          if (!open) {
+            setShareMode("link");
+          }
+        }}
+        open={qrOpen}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Share room</DialogTitle>
+            <DialogTitle>Share link</DialogTitle>
             <DialogDescription>
-              Scan the QR code or copy the room link.
+              Invite others to join this {preview.roomType === "GROUP" ? "group" : "room"}.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid place-items-center rounded-2xl border border-border bg-white p-5">
-            {qrDataUrl ? (
-              <Image
-                alt="Room QR code"
-                className="size-64"
-                height={256}
-                unoptimized
-                src={qrDataUrl}
-                width={256}
-              />
-            ) : (
-              <Loader2 className="size-8 animate-spin text-muted-foreground" />
-            )}
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              onClick={() => setShareMode("link")}
+              type="button"
+              variant={shareMode === "link" ? "default" : "outline"}
+            >
+              <Share2 aria-hidden="true" /> Share Link
+            </Button>
+            <Button
+              onClick={() => setShareMode("qr")}
+              type="button"
+              variant={shareMode === "qr" ? "default" : "outline"}
+            >
+              <QrCode aria-hidden="true" /> QR
+            </Button>
           </div>
-          <Button onClick={copyLink} type="button" variant="outline">
-            <Copy aria-hidden="true" /> Copy link
-          </Button>
+          {shareMode === "link" ? (
+            <div className="grid gap-3">
+              <div className="rounded-2xl border border-border bg-secondary/40 p-3 text-sm leading-6">
+                {shareText(preview)}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button onClick={() => openShareUrl("whatsapp", preview)} type="button" variant="outline">
+                  <MessageCircle aria-hidden="true" /> WhatsApp
+                </Button>
+                <Button onClick={() => openShareUrl("telegram", preview)} type="button" variant="outline">
+                  <Send aria-hidden="true" /> Telegram
+                </Button>
+                <Button onClick={() => void shareToInstagram(preview)} type="button" variant="outline">
+                  <Share2 aria-hidden="true" /> Instagram
+                </Button>
+                <Button onClick={() => void navigator.clipboard.writeText(roomUrl(roomId)).then(() => toast.success("Room link copied"))} type="button" variant="outline">
+                  <Copy aria-hidden="true" /> Copy Link
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid place-items-center rounded-2xl border border-border bg-white p-5">
+              {qrDataUrl ? (
+                <Image
+                  alt="Room QR code"
+                  className="size-64"
+                  height={256}
+                  unoptimized
+                  src={qrDataUrl}
+                  width={256}
+                />
+              ) : (
+                <Loader2 className="size-8 animate-spin text-muted-foreground" />
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={setSettingsOpen} open={settingsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isOwner ? "Room settings" : "Room info"}</DialogTitle>
+            <DialogDescription>
+              {isOwner
+                ? "Update room details, share access, or archive the room."
+                : "View room details, copy the invite link, or leave the room."}
+            </DialogDescription>
+          </DialogHeader>
+          {isOwner ? (
+            <form className="grid gap-4" onSubmit={submitSettings}>
+              <div className="grid gap-2">
+                <Label htmlFor="settingsTitle">Title</Label>
+                <Input
+                  id="settingsTitle"
+                  maxLength={120}
+                  onChange={(event) =>
+                    setSettingsForm((current) => ({
+                      ...current,
+                      title: event.target.value
+                    }))
+                  }
+                  required
+                  value={settingsForm.title}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="settingsDescription">Description</Label>
+                <Textarea
+                  id="settingsDescription"
+                  maxLength={1000}
+                  onChange={(event) =>
+                    setSettingsForm((current) => ({
+                      ...current,
+                      description: event.target.value
+                    }))
+                  }
+                  value={settingsForm.description}
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {preview.roomType === "GROUP" ? (
+                  <div className="grid gap-2 rounded-2xl border border-border bg-secondary/40 p-3 text-sm">
+                    <span className="text-muted-foreground">Expiry</span>
+                    <span>Permanent</span>
+                  </div>
+                ) : (
+                  <div className="grid gap-2">
+                    <Label htmlFor="settingsExpiry">Expiry</Label>
+                    <Input
+                      id="settingsExpiry"
+                      onChange={(event) =>
+                        setSettingsForm((current) => ({
+                          ...current,
+                          expiresAt: event.target.value
+                        }))
+                      }
+                      type="datetime-local"
+                      value={settingsForm.expiresAt}
+                    />
+                  </div>
+                )}
+                <div className="grid gap-2">
+                  <Label htmlFor="settingsPasscode">Passcode</Label>
+                  <Input
+                    id="settingsPasscode"
+                    maxLength={64}
+                    minLength={settingsForm.passcode ? 4 : undefined}
+                    onChange={(event) => {
+                      setSettingsPasscodeDirty(true);
+                      setSettingsForm((current) => ({
+                        ...current,
+                        passcode: event.target.value
+                      }));
+                    }}
+                    placeholder={preview.hasPasscode ? "Unchanged" : "Required passcode"}
+                    value={settingsForm.passcode}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Every room stays protected by a passcode.
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-2 rounded-2xl border border-border bg-secondary/40 p-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Invite</span>
+                  <Button onClick={() => setQrOpen(true)} size="sm" type="button" variant="outline">
+                    <Share2 aria-hidden="true" /> Share Link
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Copy</span>
+                  <Button onClick={copyLink} size="sm" type="button" variant="outline">
+                    <Copy aria-hidden="true" /> Copy Link
+                  </Button>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  disabled={roomActionLoading}
+                  onClick={archiveRoom}
+                  type="button"
+                  variant="destructive"
+                >
+                  <Trash2 aria-hidden="true" /> Archive Room
+                </Button>
+                <Button disabled={roomActionLoading} type="submit">
+                  <Edit3 aria-hidden="true" /> Save Changes
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : (
+            <div className="grid gap-4">
+              <div className="grid gap-3 rounded-2xl border border-border bg-secondary/40 p-4 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-muted-foreground">Type</span>
+                  <span>{preview.roomType === "QUICK" ? "Quick Room" : "Group"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-muted-foreground">Members</span>
+                  <span>{members.length}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-muted-foreground">Online</span>
+                  <span>{onlineParticipants.size}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-muted-foreground">Expiry</span>
+                  <span className="text-right">{roomExpiryText(preview)}</span>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button onClick={() => setQrOpen(true)} type="button" variant="outline">
+                  <Share2 aria-hidden="true" /> Share Link
+                </Button>
+                <Button onClick={copyLink} type="button" variant="outline">
+                  <Copy aria-hidden="true" /> Copy Link
+                </Button>
+              </div>
+              <Button onClick={requestLeaveRoom} type="button" variant="destructive">
+                <LogOut aria-hidden="true" /> Leave Room
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={setLeaveConfirmOpen} open={leaveConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Leave room</DialogTitle>
+            <DialogDescription>
+              You will be removed from this group and returned to your dashboard.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              disabled={roomActionLoading}
+              onClick={() => void performLeave()}
+              type="button"
+              variant="destructive"
+            >
+              Leave Room
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={(open) => !open && setRemoveTarget(null)} open={Boolean(removeTarget)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove member</DialogTitle>
+            <DialogDescription>
+              {`Remove ${removeTarget?.displayName ?? "this member"} from the room?`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              disabled={roomActionLoading}
+              onClick={confirmRemoveMember}
+              type="button"
+              variant="destructive"
+            >
+              Remove
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </main>

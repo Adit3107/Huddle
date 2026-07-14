@@ -95,6 +95,29 @@ export async function listChatMembers(
   return parseApiResponse<ChatParticipant[]>(response);
 }
 
+export async function leaveChatRoom(
+  roomId: string,
+  participantId?: string | null
+) {
+  const response = await fetch(
+    `/api/chat/${roomId}/members${participantQuery(participantId)}`,
+    {
+      method: "DELETE"
+    }
+  );
+
+  return parseApiResponse<{ removed: true }>(response);
+}
+
+export async function removeChatMember(roomId: string, memberId: string) {
+  const query = new URLSearchParams({ memberId });
+  const response = await fetch(`/api/chat/${roomId}/members?${query.toString()}`, {
+    method: "DELETE"
+  });
+
+  return parseApiResponse<{ removed: true }>(response);
+}
+
 export async function listChatMessages(
   roomId: string,
   options: {

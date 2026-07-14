@@ -33,6 +33,11 @@ export function sanitizeInput(
 ) {
   request.body = sanitizeValue(request.body);
   request.params = sanitizeValue(request.params) as Request["params"];
-  request.query = sanitizeValue(request.query) as Request["query"];
+  Object.defineProperty(request, "query", {
+    value: sanitizeValue(request.query) as Request["query"],
+    writable: true,
+    configurable: true,
+    enumerable: true
+  });
   next();
 }

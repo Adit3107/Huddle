@@ -1,18 +1,22 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/auth";
+import { getCurrentSession } from "@/lib/auth";
 import { getBackendUrl } from "@/lib/rooms";
 
 export async function proxyChatJson(
   request: NextRequest,
   path: string,
-  method: "GET" | "POST"
+  method: "GET" | "POST" | "DELETE"
 ) {
-  const session = await auth();
+  const incomingAuthorization = request.headers.get("authorization");
+  const session = incomingAuthorization ? null : await getCurrentSession();
   const headers = new Headers();
   const participantId = request.nextUrl.searchParams.get("participantId");
+  const authorization =
+    incomingAuthorization ??
+    (session?.backendToken ? `Bearer ${session.backendToken}` : null);
 
-  if (session?.backendToken) {
-    headers.set("Authorization", `Bearer ${session.backendToken}`);
+  if (authorization) {
+    headers.set("Authorization", authorization);
   }
 
   if (participantId) {
@@ -60,13 +64,17 @@ export async function proxyChatJson(
 }
 
 export async function proxyChatUpload(request: NextRequest, roomId: string) {
-  const session = await auth();
+  const incomingAuthorization = request.headers.get("authorization");
+  const session = incomingAuthorization ? null : await getCurrentSession();
   const headers = new Headers();
   const participantId = request.nextUrl.searchParams.get("participantId");
   const targetUrl = new URL(`${getBackendUrl()}/api/upload/rooms/${roomId}`);
+  const authorization =
+    incomingAuthorization ??
+    (session?.backendToken ? `Bearer ${session.backendToken}` : null);
 
-  if (session?.backendToken) {
-    headers.set("Authorization", `Bearer ${session.backendToken}`);
+  if (authorization) {
+    headers.set("Authorization", authorization);
   }
 
   if (participantId) {

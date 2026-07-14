@@ -48,6 +48,7 @@ export async function resolveRoomParticipant(
   roomId: string,
   options: {
     userId?: string;
+    email?: string;
     participantId?: string;
   }
 ): Promise<RealtimeParticipant> {
@@ -81,6 +82,21 @@ export async function resolveRoomParticipant(
             isAnonymous: true
           }
         })
+      : options.email
+        ? await prisma.groupUser.findFirst({
+            where: {
+              groupId: roomId,
+              user: {
+                email: options.email
+              }
+            },
+            select: {
+              id: true,
+              userId: true,
+              displayName: true,
+              isAnonymous: true
+            }
+          })
       : null;
 
   if (!participant) {

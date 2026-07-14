@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import {
   inviteMember,
+  leaveRoom,
   listMembers,
   removeMember
 } from "../services/member.service.js";
@@ -25,6 +26,7 @@ export async function listMembersController(
     undefined;
   const members = await listMembers(getParam(request, "id"), {
     userId: request.user?.id,
+    email: request.user?.email,
     participantId
   });
 
@@ -51,6 +53,24 @@ export async function removeMemberController(
     getParam(request, "memberId"),
     user.id
   );
+
+  return sendSuccess(response, { removed: true });
+}
+
+export async function leaveRoomController(
+  request: Request,
+  response: Response
+) {
+  const participantId =
+    (request.query.participantId as string | undefined) ??
+    request.header("X-Participant-Id") ??
+    undefined;
+
+  await leaveRoom(getParam(request, "id"), {
+    userId: request.user?.id,
+    email: request.user?.email,
+    participantId
+  });
 
   return sendSuccess(response, { removed: true });
 }

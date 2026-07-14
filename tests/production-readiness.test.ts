@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   createRoomSchema,
+  leaveMemberQuerySchema,
   joinRoomSchema,
   messageSocketSchema
 } from "@huddle/shared";
@@ -9,6 +10,7 @@ import {
   ALLOWED_UPLOAD_MIME_TYPES,
   MAX_UPLOAD_SIZE_BYTES
 } from "../apps/server/src/services/upload.service.ts";
+import { shapeRoomForUser } from "../apps/server/src/services/room.service.ts";
 import { sendError, sendSuccess } from "../apps/server/src/utils/api-response.ts";
 
 function createMockResponse() {
@@ -47,6 +49,44 @@ test("shared room schemas accept production room payloads", () => {
   });
 
   assert.equal(participant.isAnonymous, true);
+});
+
+test("room response shaping only exposes passcodes to owners", () => {
+  const room = {
+    id: "clz123456000008l30abc1234",
+    title: "Design Crit",
+    roomType: "GROUP",
+    description: null,
+    expiresAt: null,
+    passcode: "focus",
+    createdBy: "owner_1",
+    owner: {
+      id: "owner_1",
+      email: "owner@example.com",
+      name: "Owner",
+      image: null
+    },
+    peakUsers: 1,
+    isArchived: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    _count: {
+      members: 2,
+      messages: 0
+    }
+  };
+
+  assert.equal(shapeRoomForUser(room as never, "owner_1").passcode, "focus");
+  assert.equal(shapeRoomForUser(room as never, "member_1").passcode, null);
+});
+
+test("leave member query validates optional participant access", () => {
+  const parsed = leaveMemberQuerySchema.parse({
+    participantId: "clz123456000008l30abc1234"
+  });
+
+  assert.equal(parsed.participantId, "clz123456000008l30abc1234");
+  assert.deepEqual(leaveMemberQuerySchema.parse({}), {});
 });
 
 test("realtime message schema requires meaningful content", () => {

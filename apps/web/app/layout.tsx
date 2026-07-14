@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import type { Viewport } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import { Toaster } from "sonner";
-import { HuddleSessionProvider } from "@/providers/session-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 import "./globals.css";
 
@@ -70,10 +70,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${GeistSans.variable} ${GeistMono.variable}`}>
-        <ThemeProvider>
-          <HuddleSessionProvider>{children}</HuddleSessionProvider>
-          <Toaster richColors position="top-right" />
-        </ThemeProvider>
+        <ClerkProvider>
+          <ThemeProvider>
+            {children}
+            <Toaster richColors position="top-right" />
+          </ThemeProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

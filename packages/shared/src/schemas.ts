@@ -38,9 +38,6 @@ export const createRoomSchema = z.object({
     .trim()
     .min(4)
     .max(64)
-    .optional()
-    .nullable()
-    .transform((value) => (value && value.length > 0 ? value : null))
 });
 
 export const updateRoomSchema = createRoomSchema
@@ -69,6 +66,10 @@ export const participantAccessQuerySchema = z.object({
   participantId: cuidSchema.optional()
 });
 
+export const leaveMemberQuerySchema = z.object({
+  participantId: cuidSchema.optional()
+});
+
 export const removeMemberParamsSchema = z.object({
   id: cuidSchema,
   memberId: cuidSchema
@@ -83,7 +84,7 @@ export const roomsQuerySchema = z.object({
   roomType: roomTypeSchema.optional()
 });
 
-export const googleLoginSchema = z.object({
+export const identityLoginSchema = z.object({
   email: z.string().trim().email().toLowerCase(),
   name: z.string().trim().min(1),
   image: z
