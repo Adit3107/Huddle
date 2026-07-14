@@ -7,13 +7,12 @@ import {
   typingSocketSchema
 } from "@huddle/shared";
 import { createAdapter } from "@socket.io/redis-adapter";
-import { randomUUID } from "node:crypto";
 import type { Server as HttpServer } from "node:http";
 import { Server, type Socket } from "socket.io";
 import { getCorsOrigins } from "../config/env.js";
+import prisma from "../config/prisma.js";
 import { createSocketRedisConnection } from "../config/redis.js";
 import { AppError } from "../errors/app-error.js";
-import { enqueueMessagePersistence } from "../queues/realtime.producer.js";
 import { logger } from "../utils/logger.js";
 import { emitCaughtSocketError, emitSocketError } from "./errors.js";
 import type {
@@ -190,6 +189,7 @@ export function configureRealtime(server: HttpServer) {
         await ensureRoomIsActive(data.roomId);
         const participant = await resolveRoomParticipant(data.roomId, {
           userId: socket.data.user?.id,
+          email: socket.data.user?.email,
           participantId: data.participantId
         });
 
@@ -238,46 +238,42 @@ export function configureRealtime(server: HttpServer) {
         }
 
         await ensureRoomIsActive(data.roomId);
-        const createdAt = new Date().toISOString();
-        const message = {
-          id: `tmp_${randomUUID()}`,
-          clientMessageId: data.clientMessageId,
-          roomId: data.roomId,
-          sender: participant,
-          kind: data.kind,
-          text: data.text,
-          fileUrl: data.fileUrl ?? null,
-          fileType: data.fileType ?? null,
-          fileName: data.fileName ?? null,
-          createdAt,
-          status: "queued" as const
-        };
-
-        io.to(realtimeRoom(data.roomId)).emit("message", message);
-
-        try {
-          await enqueueMessagePersistence({
-            roomId: data.roomId,
+        const persisted = await prisma.message.create({
+          data: {
+            groupId: data.roomId,
             senderId: participant.participantId,
             senderName: participant.displayName,
             text: data.text,
             fileUrl: data.fileUrl ?? null,
             fileType: data.fileType ?? null,
-            fileName: data.fileName ?? null,
-            createdAt
-          });
-        } catch (error) {
-          logger.error({ error, roomId: data.roomId }, "Failed to enqueue message");
-          emitSocketError(
-            socket,
-            "QUEUE_UNAVAILABLE",
-            "Message was broadcast but could not be queued for persistence.",
-            {
-              event: "message",
-              roomId: data.roomId
-            }
-          );
-        }
+            fileName: data.fileName ?? null
+          },
+          select: {
+            id: true,
+            groupId: true,
+            text: true,
+            fileUrl: true,
+            fileType: true,
+            fileName: true,
+            createdAt: true
+          }
+        });
+
+        const message = {
+          id: persisted.id,
+          clientMessageId: data.clientMessageId,
+          roomId: persisted.groupId,
+          sender: participant,
+          kind: data.kind,
+          text: persisted.text,
+          fileUrl: persisted.fileUrl,
+          fileType: persisted.fileType,
+          fileName: persisted.fileName,
+          createdAt: persisted.createdAt.toISOString(),
+          status: "persisted" as const
+        };
+
+        io.to(realtimeRoom(data.roomId)).emit("message", message);
       })().catch((error) => {
         const roomId =
           typeof payload === "object" && payload && "roomId" in payload
@@ -380,6 +376,7 @@ export function configureRealtime(server: HttpServer) {
               socket.data.joinedRooms.get(room.roomId) ??
               (await resolveRoomParticipant(room.roomId, {
                 userId: socket.data.user?.id,
+                email: socket.data.user?.email,
                 participantId: room.participantId
               }));
 

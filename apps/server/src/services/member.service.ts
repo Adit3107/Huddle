@@ -7,6 +7,7 @@ export async function listMembers(
   roomId: string,
   options: {
     userId?: string;
+    email?: string;
     participantId?: string;
   }
 ) {
@@ -152,6 +153,70 @@ export async function removeMember(
   await prisma.groupUser.delete({
     where: {
       id: memberId
+    }
+  });
+}
+
+export async function leaveRoom(
+  roomId: string,
+  options: {
+    userId?: string;
+    email?: string;
+    participantId?: string;
+  }
+) {
+  const room = await assertRoomAccess(roomId, options);
+
+  let member:
+    | {
+        id: string;
+        userId: string | null;
+      }
+    | null = null;
+
+  if (options.userId) {
+    member = await prisma.groupUser.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: roomId,
+          userId: options.userId
+        }
+      },
+      select: {
+        id: true,
+        userId: true
+      }
+    });
+  }
+
+  if (!member && options.participantId) {
+    member = await prisma.groupUser.findFirst({
+      where: {
+        id: options.participantId,
+        groupId: roomId
+      },
+      select: {
+        id: true,
+        userId: true
+      }
+    });
+  }
+
+  if (!member) {
+    throw new AppError(404, "MEMBER_NOT_FOUND", "Member was not found.");
+  }
+
+  if (member.userId === room.createdBy) {
+    throw new AppError(
+      400,
+      "OWNER_CANNOT_LEAVE",
+      "Room owners cannot leave their own room."
+    );
+  }
+
+  await prisma.groupUser.delete({
+    where: {
+      id: member.id
     }
   });
 }

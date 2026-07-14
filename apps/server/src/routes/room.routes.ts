@@ -2,6 +2,7 @@ import {
   createRoomSchema,
   idParamsSchema,
   participantAccessQuerySchema,
+  leaveMemberQuerySchema,
   joinRoomSchema,
   removeMemberParamsSchema,
   roomsQuerySchema,
@@ -21,6 +22,7 @@ import {
 } from "../controllers/room.controller.js";
 import {
   inviteMemberController,
+  leaveRoomController,
   listMembersController,
   removeMemberController
 } from "../controllers/member.controller.js";
@@ -97,6 +99,13 @@ roomRoutes.post(
   requireAuth,
   validate({ params: idParamsSchema, body: inviteMemberSchema }),
   asyncHandler(inviteMemberController)
+);
+
+roomRoutes.delete(
+  "/:id/members/me",
+  optionalAuth,
+  validate({ params: idParamsSchema, query: leaveMemberQuerySchema }),
+  asyncHandler(leaveRoomController)
 );
 
 roomRoutes.delete(

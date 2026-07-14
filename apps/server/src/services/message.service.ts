@@ -6,6 +6,7 @@ export async function listMessages(
   roomId: string,
   options: {
     userId?: string;
+    email?: string;
     participantId?: string;
     cursor?: string;
     limit: number;
@@ -13,6 +14,7 @@ export async function listMessages(
 ) {
   await assertRoomAccess(roomId, {
     userId: options.userId,
+    email: options.email,
     participantId: options.participantId
   });
 

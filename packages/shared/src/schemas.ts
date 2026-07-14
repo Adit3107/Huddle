@@ -38,9 +38,6 @@ export const createRoomSchema = z.object({
     .trim()
     .min(4)
     .max(64)
-    .optional()
-    .nullable()
-    .transform((value) => (value && value.length > 0 ? value : null))
 });
 
 export const updateRoomSchema = createRoomSchema
@@ -66,6 +63,10 @@ export const inviteMemberSchema = z.object({
 });
 
 export const participantAccessQuerySchema = z.object({
+  participantId: cuidSchema.optional()
+});
+
+export const leaveMemberQuerySchema = z.object({
   participantId: cuidSchema.optional()
 });
 

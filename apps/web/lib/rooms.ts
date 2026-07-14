@@ -27,6 +27,12 @@ export interface HuddleRoom {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
+  owner?: {
+    id: string;
+    email: string;
+    name: string;
+    image: string | null;
+  };
   _count: {
     members: number;
     messages: number;
@@ -48,7 +54,7 @@ export interface CreateRoomPayload {
   roomType: RoomType;
   description?: string | null;
   expiresAt?: string | null;
-  passcode?: string | null;
+  passcode: string;
 }
 
 export interface UpdateRoomPayload {
@@ -141,6 +147,37 @@ export function deleteRoom(token: string, roomId: string) {
 
 export function getRoomAnalytics(token: string, roomId: string) {
   return roomRequest<RoomAnalytics>(token, `/api/rooms/${roomId}/analytics`);
+}
+
+export function isRoomOwner(
+  room: Pick<HuddleRoom, "createdBy">,
+  userId: string
+) {
+  return room.createdBy === userId;
+}
+
+export function roomInvitePath(roomId: string) {
+  return `/chat/${roomId}`;
+}
+
+export function roomInviteUrl(roomId: string) {
+  if (typeof window === "undefined") {
+    return roomInvitePath(roomId);
+  }
+
+  return `${window.location.origin}${roomInvitePath(roomId)}`;
+}
+
+export function roomStatus(room: Pick<HuddleRoom, "isArchived" | "expiresAt">) {
+  if (room.isArchived) {
+    return "Archived";
+  }
+
+  if (room.expiresAt && new Date(room.expiresAt).getTime() <= Date.now()) {
+    return "Expired";
+  }
+
+  return "Active";
 }
 
 export function formatDate(value: string | null) {

@@ -7,7 +7,7 @@ interface RoomInput {
   roomType: "QUICK" | "GROUP";
   description?: string | null;
   expiresAt?: Date | null;
-  passcode?: string | null;
+  passcode: string;
 }
 
 interface UpdateRoomInput {
@@ -31,6 +31,14 @@ const roomSelect = {
   expiresAt: true,
   passcode: true,
   createdBy: true,
+  owner: {
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      image: true
+    }
+  },
   peakUsers: true,
   isArchived: true,
   createdAt: true,
@@ -43,14 +51,34 @@ const roomSelect = {
   }
 } satisfies Prisma.ChatGroupSelect;
 
-function ensureActiveRoom(room: { isArchived: boolean; expiresAt: Date | null }) {
+type SelectedRoom = Prisma.ChatGroupGetPayload<{
+  select: typeof roomSelect;
+}>;
+
+function ensureActiveRoom(room: {
+  isArchived: boolean;
+  roomType: RoomType;
+  expiresAt: Date | null;
+}) {
   if (room.isArchived) {
     throw new AppError(404, "ROOM_NOT_FOUND", "Room was not found.");
   }
 
-  if (room.expiresAt && room.expiresAt.getTime() <= Date.now()) {
+  if (
+    room.roomType !== "GROUP" &&
+    room.expiresAt &&
+    room.expiresAt.getTime() <= Date.now()
+  ) {
     throw new AppError(410, "ROOM_EXPIRED", "Room has expired.");
   }
+}
+
+export function shapeRoomForUser(room: SelectedRoom, userId: string) {
+  return {
+    ...room,
+    expiresAt: room.roomType === "GROUP" ? null : room.expiresAt,
+    passcode: room.createdBy === userId ? room.passcode : null
+  };
 }
 
 export async function getRoomOrThrow(roomId: string) {
@@ -87,10 +115,14 @@ export async function getRoomPreview(roomId: string) {
     title: room.title,
     roomType: room.roomType,
     description: room.description,
-    expiresAt: room.expiresAt,
     createdBy: room.createdBy,
     isArchived: room.isArchived,
-    isExpired: Boolean(room.expiresAt && room.expiresAt.getTime() <= Date.now()),
+    expiresAt: room.roomType === "GROUP" ? null : room.expiresAt,
+    isExpired: Boolean(
+      room.roomType !== "GROUP" &&
+        room.expiresAt &&
+        room.expiresAt.getTime() <= Date.now()
+    ),
     hasPasscode: Boolean(room.passcode),
     createdAt: room.createdAt,
     updatedAt: room.updatedAt,
@@ -116,6 +148,7 @@ export async function assertRoomAccess(
   roomId: string,
   options: {
     userId?: string;
+    email?: string;
     participantId?: string;
   }
 ) {
@@ -131,6 +164,24 @@ export async function assertRoomAccess(
         groupId_userId: {
           groupId: roomId,
           userId: options.userId
+        }
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (member) {
+      return room;
+    }
+  }
+
+  if (options.email) {
+    const member = await prisma.groupUser.findFirst({
+      where: {
+        groupId: roomId,
+        user: {
+          email: options.email
         }
       },
       select: {
@@ -163,10 +214,13 @@ export async function assertRoomAccess(
 }
 
 export async function listRooms(userId: string, roomType?: "QUICK" | "GROUP") {
-  return prisma.chatGroup.findMany({
+  const rooms = await prisma.chatGroup.findMany({
     where: {
       isArchived: false,
       OR: [
+        {
+          roomType: "GROUP"
+        },
         {
           expiresAt: null
         },
@@ -199,10 +253,13 @@ export async function listRooms(userId: string, roomType?: "QUICK" | "GROUP") {
     },
     select: roomSelect
   });
+
+  return rooms.map((room) => shapeRoomForUser(room, userId));
 }
 
 export async function getRoomForUser(roomId: string, userId: string) {
-  return assertRoomAccess(roomId, { userId });
+  const room = await assertRoomAccess(roomId, { userId });
+  return shapeRoomForUser(room, userId);
 }
 
 export async function createRoom(
@@ -213,6 +270,10 @@ export async function createRoom(
     name: string;
   }
 ) {
+  if (!input.passcode?.trim()) {
+    throw new AppError(400, "PASSCODE_REQUIRED", "Room passcode is required.");
+  }
+
   return prisma.$transaction(async (transaction) => {
     await transaction.user.upsert({
       where: {
@@ -236,8 +297,8 @@ export async function createRoom(
         title: input.title,
         roomType: input.roomType as RoomType,
         description: input.description ?? null,
-        expiresAt: input.expiresAt ?? null,
-        passcode: input.passcode ?? null,
+        expiresAt: input.roomType === "GROUP" ? null : input.expiresAt ?? null,
+        passcode: input.passcode,
         createdBy: user.id,
         peakUsers: 1,
         members: {
@@ -261,13 +322,21 @@ export async function updateRoom(
   input: UpdateRoomInput,
   userId: string
 ) {
-  await assertRoomOwner(roomId, userId);
+  const room = await assertRoomOwner(roomId, userId);
+  if ("passcode" in input && !input.passcode?.trim()) {
+    throw new AppError(400, "PASSCODE_REQUIRED", "Room passcode is required.");
+  }
+
+  const data = {
+    ...input,
+    ...(room.roomType === "GROUP" ? { expiresAt: null } : {})
+  };
 
   return prisma.chatGroup.update({
     where: {
       id: roomId
     },
-    data: input,
+    data,
     select: roomSelect
   });
 }
@@ -290,6 +359,7 @@ export async function joinRoom(
   input: JoinRoomInput,
   user?: {
     id: string;
+    email?: string;
     name: string;
   }
 ) {
@@ -300,17 +370,37 @@ export async function joinRoom(
   }
 
   if (user) {
-    const existing = await prisma.groupUser.findUnique({
+    const existing = await prisma.groupUser.findFirst({
       where: {
-        groupId_userId: {
-          groupId: roomId,
-          userId: user.id
-        }
+        groupId: roomId,
+        OR: [
+          {
+            userId: user.id
+          },
+          ...(user.email
+            ? [
+                {
+                  user: {
+                    email: user.email
+                  }
+                }
+              ]
+            : [])
+        ]
+      },
+      select: {
+        id: true,
+        groupId: true,
+        userId: true,
+        displayName: true,
+        isAnonymous: true,
+        joinedAt: true,
+        lastSeen: true
       }
     });
 
     if (existing) {
-      throw new AppError(409, "ALREADY_JOINED", "You already joined this room.");
+      return existing;
     }
   }
 

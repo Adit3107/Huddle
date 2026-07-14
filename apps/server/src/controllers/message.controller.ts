@@ -9,6 +9,7 @@ export async function listMessagesController(
 ) {
   const messages = await listMessages(getParam(request, "roomId"), {
     userId: request.user?.id,
+    email: request.user?.email,
     participantId: request.header("X-Participant-Id") ?? undefined,
     cursor: request.query.cursor as string | undefined,
     limit: Number(request.query.limit)

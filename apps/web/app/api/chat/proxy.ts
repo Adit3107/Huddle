@@ -5,7 +5,7 @@ import { getBackendUrl } from "@/lib/rooms";
 export async function proxyChatJson(
   request: NextRequest,
   path: string,
-  method: "GET" | "POST"
+  method: "GET" | "POST" | "DELETE"
 ) {
   const incomingAuthorization = request.headers.get("authorization");
   const session = incomingAuthorization ? null : await getCurrentSession();
