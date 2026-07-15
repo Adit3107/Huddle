@@ -5,7 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
 export default async function DashboardPage() {
-  await auth.protect({ unauthenticatedUrl: "/" });
+  await auth.protect({ unauthenticatedUrl: "/sign-in" });
 
   const session = await getCurrentSession();
 

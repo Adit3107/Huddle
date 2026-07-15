@@ -70,7 +70,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${GeistSans.variable} ${GeistMono.variable}`}>
-        <ClerkProvider>
+        <ClerkProvider
+          afterSignOutUrl="/"
+          signInFallbackRedirectUrl="/dashboard"
+          signInForceRedirectUrl="/dashboard"
+          signInUrl="/sign-in"
+          signUpFallbackRedirectUrl="/dashboard"
+          signUpForceRedirectUrl="/dashboard"
+          signUpUrl="/sign-up"
+        >
           <ThemeProvider>
             {children}
             <Toaster richColors position="top-right" />

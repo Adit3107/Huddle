@@ -53,3 +53,47 @@ export async function upsertIdentityUser(
     throw error;
   }
 }
+
+export async function deleteIdentityUser(providerId: string) {
+  try {
+    await prisma.user.delete({
+      where: {
+        provider_providerId: {
+          provider: "clerk",
+          providerId
+        }
+      }
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      return;
+    }
+
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2003"
+    ) {
+      await prisma.user.update({
+        where: {
+          provider_providerId: {
+            provider: "clerk",
+            providerId
+          }
+        },
+        data: {
+          email: `deleted-${providerId}@huddle.local`,
+          image: null,
+          name: "Deleted HUDDLE user",
+          provider: "clerk_deleted",
+          providerId
+        }
+      });
+      return;
+    }
+
+    throw error;
+  }
+}
