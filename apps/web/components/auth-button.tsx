@@ -1,7 +1,8 @@
 "use client";
 
 import { LogIn, LogOut } from "lucide-react";
-import { SignInButton, SignOutButton, useAuth } from "@clerk/nextjs";
+import { SignOutButton, useAuth } from "@clerk/nextjs";
+import Link from "next/link";
 import { Button, type ButtonProps } from "@/components/ui/button";
 
 export function LoginButton({
@@ -12,18 +13,18 @@ export function LoginButton({
   const { isLoaded } = useAuth();
 
   return (
-    <SignInButton fallbackRedirectUrl="/dashboard" forceRedirectUrl="/dashboard" mode="modal">
-      <Button
-        className={className}
-        disabled={!isLoaded}
-        size={size}
-        type="button"
-        variant={variant}
-      >
+    <Button
+      asChild
+      className={className}
+      data-disabled={!isLoaded}
+      size={size}
+      variant={variant}
+    >
+      <Link aria-disabled={!isLoaded} href="/sign-in">
         <LogIn aria-hidden="true" size={16} />
-        Sign in with Google
-      </Button>
-    </SignInButton>
+        Sign in
+      </Link>
+    </Button>
   );
 }
 

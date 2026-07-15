@@ -349,7 +349,7 @@ function MessageBubble({
       <Avatar className="mt-1 size-9">
         <AvatarFallback>{initials(message.sender.displayName)}</AvatarFallback>
       </Avatar>
-      <div className={cn("max-w-[78%] sm:max-w-[68%]", own && "items-end")}>
+      <div className={cn("min-w-0 max-w-[82%] sm:max-w-[68%]", own && "items-end")}>
         <div className={cn("mb-1 flex items-center gap-2", own && "justify-end")}>
           <span className="truncate text-xs font-medium">
             {message.sender.displayName}
@@ -370,7 +370,7 @@ function MessageBubble({
           )}
         >
           {message.text ? (
-            <p className="whitespace-pre-wrap text-sm leading-6">{message.text}</p>
+            <p className="whitespace-pre-wrap break-words text-sm leading-6">{message.text}</p>
           ) : null}
           {imageUrl ? (
             <a href={imageUrl} rel="noreferrer" target="_blank">
@@ -1668,7 +1668,7 @@ export function ChatClient({
           </div>
           {shareMode === "link" ? (
             <div className="grid gap-3">
-              <div className="rounded-2xl border border-border bg-secondary/40 p-3 text-sm leading-6">
+              <div className="break-words rounded-2xl border border-border bg-secondary/40 p-3 text-sm leading-6">
                 {shareText(preview)}
               </div>
               <div className="grid gap-2 sm:grid-cols-2">

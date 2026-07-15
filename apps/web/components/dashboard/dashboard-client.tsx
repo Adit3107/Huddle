@@ -375,31 +375,31 @@ function RoomCard({
         {room.description || "No description yet."}
       </p>
       <div className="mt-6 grid gap-3 text-sm">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center justify-between gap-4">
           <span className="flex items-center gap-2 text-muted-foreground">
             <UsersRound aria-hidden="true" className="size-4" /> Owner
           </span>
           <span className="truncate text-right">{owner}</span>
         </div>
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center justify-between gap-4">
           <span className="flex items-center gap-2 text-muted-foreground">
             <CalendarClock aria-hidden="true" className="size-4" /> Created
           </span>
           <span className="text-right">{formatDate(room.createdAt)}</span>
         </div>
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center justify-between gap-4">
           <span className="flex items-center gap-2 text-muted-foreground">
             <Activity aria-hidden="true" className="size-4" /> Expiry
           </span>
           <span className="text-right">{roomExpiryText(room)}</span>
         </div>
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center justify-between gap-4">
           <span className="flex items-center gap-2 text-muted-foreground">
             <UsersRound aria-hidden="true" className="size-4" /> Participants
           </span>
           <span>{room._count.members}</span>
         </div>
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center justify-between gap-4">
           <span className="flex items-center gap-2 text-muted-foreground">
             <Zap aria-hidden="true" className="size-4" /> Online
           </span>
@@ -1179,7 +1179,7 @@ export function DashboardClient({
           </div>
           {shareMode === "link" && qrTarget ? (
             <div className="grid gap-3">
-              <div className="rounded-2xl border border-border bg-secondary/40 p-3 text-sm leading-6">
+              <div className="break-words rounded-2xl border border-border bg-secondary/40 p-3 text-sm leading-6">
                 {shareText(qrTarget)}
               </div>
               <div className="grid gap-2 sm:grid-cols-2">

@@ -18,6 +18,7 @@ import healthRoutes from "./routes/health.routes.js";
 import messageRoutes from "./routes/message.routes.js";
 import roomRoutes from "./routes/room.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
+import webhookRoutes from "./routes/webhook.routes.js";
 import { configureRealtime } from "./realtime/socket.js";
 import { logger } from "./utils/logger.js";
 
@@ -49,6 +50,7 @@ app.use(
   })
 );
 app.use(cookieParser());
+app.use("/api/webhooks", express.raw({ type: "application/json" }), webhookRoutes);
 app.use(express.json({ limit: "1mb" }));
 app.use(sanitizeInput);
 app.use(
